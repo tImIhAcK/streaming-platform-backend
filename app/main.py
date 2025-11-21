@@ -1,23 +1,25 @@
-
 import logging
 import signal
-from contextlib import asynccontextmanager
+
+# from contextlib import asynccontextmanager
+from typing import Any, Dict, Tuple, Union
 
 from fastapi import FastAPI
+
+# from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
-from app.core.config import settings
+from fastapi.staticfiles import StaticFiles
+
+# from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import settings
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -25,56 +27,24 @@ logger = logging.getLogger(__name__)
 logging.getLogger("asyncio").setLevel(logging.WARNING)
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
+
 def custom_generate_unique_id(route: APIRoute) -> str:
     """Generate unique ID for OpenAPI documentation"""
-    return f"{route.tags[0]}-{route.name}" if route.tags else route.name
+    if route.tags:
+        first_tag: str = str(route.tags[0])
+        return f"{first_tag}-{route.name}"
+    return str(route.name)
 
-
-
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     """
-#     Handles startup and shutdown lifecycle events.
-#     Ensures database connections and background resources are cleanly managed.
-#     """
-#     # ✅ Startup
-#     try:
-#         logger.info("🚀 Starting application initialization...")
-#         await init_db()
-#         logger.info("✅ Database initialized")
-        
-#         # Test Celery connection
-#         celery_ping = celery_app.control.ping()
-#         if celery_ping:
-#             logger.info("✅ Celery broker is reachable")
-#         else:
-#             logger.warning("⚠️ Celery broker may be unreachable")
-        
-#         logger.info("🚀 Application startup complete.")
-#     except Exception as e:
-#         logger.error(f"❌ Startup error: {e}", exc_info=True)
-#         raise
-    
-#     yield
-
-#     # ✅ Shutdown
-#     try:
-#         logger.info("🛑 Starting graceful shutdown...")
-#         await close_db()
-#         logger.info("🛑 Application shutdown complete.")
-#     except Exception as e:
-#         logger.error(f"❌ Shutdown error: {e}", exc_info=True)
 
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     description="A Streaming Platform API",
-    version="1.0.0",
+    version="0.1.0",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs",
     redoc_url=f"{settings.API_V1_STR}/redoc",
     generate_unique_id_function=custom_generate_unique_id,
-    # lifespan=lifespan,
 )
 
 
@@ -105,35 +75,33 @@ if settings.all_cors_origins:
         allow_headers=["*"],
         max_age=600,
     )
-    logger.info(f"✅ CORS configured for: {settings.all_cors_origins}")
+    cors_origins = settings.all_cors_origins
+    logger.info(f"✅ CORS configured for: {cors_origins}")
 else:
     logger.warning("⚠️ CORS not configured - no origins allowed")
 
 
-# 🧩 Register all API routes
-# app.include_router(router)
-
-
 # 🏥 Health Check Endpoints
 @app.get("/health", tags=["health"])
-async def health_check():
+async def health_check() -> Dict[str, str]:
     """Basic health check endpoint"""
     return {"status": "healthy", "service": settings.APP_NAME}
 
 
 @app.get("/health/ready", tags=["health"])
-async def readiness_check():
-    """Readiness check - returns 200 only if app is ready to serve requests"""
+async def readiness_check() -> Union[Dict[str, str], Tuple[Dict[str, str], int]]:
+    """Readiness check - returns 200 only if ready"""
     try:
         # Add any critical checks here
         return {"status": "ready"}
     except Exception as e:
-        logger.error(f"Readiness check failed: {e}")
+        error_msg = f"Readiness check failed: {e}"
+        logger.error(error_msg)
         return {"status": "not_ready", "error": str(e)}, 503
 
 
 @app.get("/", tags=["root"])
-async def root():
+async def root() -> Dict[str, str]:
     """Root endpoint - API information"""
     return {
         "message": f"Welcome to {settings.APP_NAME}",
@@ -143,7 +111,7 @@ async def root():
 
 
 # 🔧 Signal Handlers for graceful shutdown
-def signal_handler(signum, frame):
+def signal_handler(signum: int, frame: Any) -> None:
     """Handle termination signals gracefully"""
     signal_name = signal.Signals(signum).name
     logger.info(f"📌 Received {signal_name} signal")
@@ -156,7 +124,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         reload=settings.ENVIRONMENT != "production",
