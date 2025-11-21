@@ -137,7 +137,7 @@ async def root():
     """Root endpoint - API information"""
     return {
         "message": f"Welcome to {settings.APP_NAME}",
-        "version": "1.0.0",
+        "version": "0.1.0",
         "docs": f"{settings.API_V1_STR}/docs",
     }
 
