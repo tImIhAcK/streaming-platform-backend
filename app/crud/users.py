@@ -16,7 +16,7 @@ class UserCRUD(BaseCRUD[User]):
 
     async def get_by_uid(self, session: AsyncSession, uid: str) -> Optional[UserRead]:
         user = await self.get(session, uid, field="uid")
-        return UserRead.model_validate(user) if user else None
+        return UserRead.model_validate(user, from_attributes=True) if user else None
 
     async def get_user_by_uid(self, session: AsyncSession, uid: str) -> Optional[User]:
         return await self.get(session, uid, field="uid")
@@ -25,18 +25,23 @@ class UserCRUD(BaseCRUD[User]):
         self, session: AsyncSession, username: str
     ) -> Optional[UserRead]:
         user = await self.get(session, username, field="username")
-        return UserRead.model_validate(user) if user else None
+        return UserRead.model_validate(user, from_attributes=True) if user else None
 
     async def get_user_for_auth(
         self, session: AsyncSession, username: str
     ) -> Optional[User]:
-        return await self.get(session, username, field="username")
+        # can be username or email
+        statement = select(User).where(
+            (User.username == username) | (User.email == username)
+        )
+        result = await session.execute(statement)
+        return result.scalar_one_or_none()  # type: ignore[no-any-return]
 
     async def get_by_email(
         self, session: AsyncSession, email: EmailStr
     ) -> Optional[UserRead]:
         user = await self.get(session, email, field="email")
-        return UserRead.model_validate(user) if user else None
+        return UserRead.model_validate(user, from_attributes=True) if user else None
 
     async def create_user(self, session: AsyncSession, user_in: UserCreate) -> User:
         data = user_in.model_dump()
@@ -63,14 +68,18 @@ class UserCRUD(BaseCRUD[User]):
         statement = select(User).offset(skip).limit(limit)
         result = await session.execute(statement)
         users = result.scalars().all()
-        return [UserRead.model_validate(user) for user in users]
+        return [UserRead.model_validate(user, from_attributes=True) for user in users]
 
     async def update_user(
         self, session: AsyncSession, uid: str, user_in: UserUpdate
     ) -> Optional[UserRead]:
         data = user_in.model_dump(exclude_unset=True)
         updated_user = await self.update(session, uid, data, field="uid")
-        return UserRead.model_validate(updated_user) if updated_user else None
+        return (
+            UserRead.model_validate(updated_user, from_attributes=True)
+            if updated_user
+            else None
+        )
 
     async def delete_user(self, session: AsyncSession, uid: str) -> bool:
         return await self.delete(session, uid, field="uid")
@@ -79,4 +88,4 @@ class UserCRUD(BaseCRUD[User]):
         self, session: AsyncSession, token: str
     ) -> Optional[UserRead]:
         user = await self.get(session, token, field="activation_token")
-        return UserRead.model_validate(user) if user else None
+        return UserRead.model_validate(user, from_attributes=True) if user else None

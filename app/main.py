@@ -90,6 +90,9 @@ async def custom_app_exception_handler(
     return await app_exception_handler(request, exc)
 
 
+app.include_router(routes)
+
+
 # 🏥 Health Check Endpoints
 @app.get("/health", tags=["health"])
 async def health_check() -> Dict[str, str]:
@@ -129,8 +132,6 @@ def signal_handler(signum: int, frame: Any) -> None:
 
 signal.signal(signal.SIGTERM, signal_handler)
 signal.signal(signal.SIGINT, signal_handler)
-
-app.include_router(routes)
 
 
 if __name__ == "__main__":

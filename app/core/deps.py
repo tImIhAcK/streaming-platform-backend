@@ -22,7 +22,6 @@ class TokenBearer(HTTPBearer):
     async def __call__(self, request: Request) -> TokenData:
         creds: HTTPAuthorizationCredentials | None = await super().__call__(request)
 
-        # Handle the case where creds is None
         if creds is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -35,7 +34,7 @@ class TokenBearer(HTTPBearer):
         token = creds.credentials
         token_data = decode_token(token)
 
-        if not self.token_valid(token):
+        if token_data is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -53,12 +52,6 @@ class TokenBearer(HTTPBearer):
             )
         self.verify_token_data(token_data)
         return token_data
-
-    def token_valid(self, token: str) -> bool:
-        try:
-            return bool(decode_token(token))
-        except Exception:
-            return False
 
     def verify_token_data(self, token_data: TokenData) -> None:
         raise NotImplementedError("Please override this method in child classes")
