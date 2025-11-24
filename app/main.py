@@ -4,7 +4,8 @@ import signal
 # from contextlib import asynccontextmanager
 from typing import Any, Dict, Tuple, Union
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 # from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
@@ -14,7 +15,9 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.api.router import routes
 from app.core.config import settings
+from app.core.exceptions import AppException, app_exception_handler
 
 # Configure logging
 logging.basicConfig(
@@ -47,7 +50,6 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
 )
 
-
 # 📂 Static Files Configuration
 try:
     app.mount("/media", StaticFiles(directory="media"), name="media")
@@ -79,6 +81,13 @@ if settings.all_cors_origins:
     logger.info(f"✅ CORS configured for: {cors_origins}")
 else:
     logger.warning("⚠️ CORS not configured - no origins allowed")
+
+
+@app.exception_handler(AppException)
+async def custom_app_exception_handler(
+    request: Request, exc: AppException
+) -> JSONResponse:
+    return await app_exception_handler(request, exc)
 
 
 # 🏥 Health Check Endpoints
@@ -120,6 +129,8 @@ def signal_handler(signum: int, frame: Any) -> None:
 
 signal.signal(signal.SIGTERM, signal_handler)
 signal.signal(signal.SIGINT, signal_handler)
+
+app.include_router(routes)
 
 
 if __name__ == "__main__":

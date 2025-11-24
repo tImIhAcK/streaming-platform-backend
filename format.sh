@@ -9,6 +9,6 @@ echo "🖤 Formatting code..."
 black .
 
 echo "🔍 Running type checks..."
-mypy .
+mypy --config-file=pyproject.toml .
 
 echo "✅ All checks completed!"
