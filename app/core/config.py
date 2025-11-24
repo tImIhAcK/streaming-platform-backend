@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SUPERUSER_USERNAME: str
     SUPERUSER_PASSWORD: str
+    SUPERUSER_EMAIL: str
     JWT_SECRET: str
     JWT_ALGORITHM: str
     REDIS_URL: str
@@ -81,7 +82,7 @@ class Settings(BaseSettings):
 
 
 def get_settings() -> Settings:
-    return Settings(_env_file=".env.local")  # type: ignore[call-arg]
+    return Settings()
 
 
 settings = get_settings()
