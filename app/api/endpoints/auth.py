@@ -16,7 +16,7 @@ from app.core.exceptions import (
     ValidationException,
 )
 from app.core.redis import add_jti_to_blocklist
-from app.core.security import create_access_token, decode_token, verify_password
+from app.core.security import TokenData, create_access_token, verify_password
 from app.crud.users import UserCRUD
 from app.db.session import get_session
 from app.schemas.users import PublicUserCreate, TokenRead, UserRead
@@ -74,7 +74,7 @@ async def register_user(
         body=email_body,
     )
 
-    user_read = cast(UserRead, UserRead.model_validate(new_user))
+    user_read = cast(UserRead, UserRead.model_validate(new_user, from_attributes=True))
 
     return user_read
 
@@ -156,7 +156,7 @@ async def activate_account(
             content={"message": "Account already activated."},
         )
     user.is_verified = True
-    await auth_crud.update(session, user.uid, {"is_verified": True}, field="uid")
+    await auth_crud.update_user(session, str(user.uid), user)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Account activated successfully."},
@@ -166,17 +166,10 @@ async def activate_account(
 @auth_router.post("/logout")
 async def logout(
     current_user: Annotated[UserRead, Depends(get_current_user)],  # noqa: B008
-    token: Annotated[str, Depends(AccessTokenBearer())],  # noqa: B008
+    token_data: Annotated[TokenData, Depends(AccessTokenBearer())],  # noqa: B008
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
 ) -> JSONResponse:
-    token_data = decode_token(token)
-    jti = token_data.get("jti")
-    exp = token_data.get("exp")
-    if not jti or not exp:
-        raise ValidationException(
-            message="Invalid token.",
-        )
-    await add_jti_to_blocklist(jti)
+    await add_jti_to_blocklist(token_data["jti"])
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Successfully logged out."},

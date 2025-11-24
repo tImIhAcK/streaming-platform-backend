@@ -2,10 +2,10 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, TypedDict, cast
+from typing import Any, Dict, TypedDict
 
 import jwt
-from jwt import ExpiredSignatureError, InvalidTokenError
+from jwt import ExpiredSignatureError
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class TokenData(TypedDict):
-    user: dict[str, Any]
+    user: Dict[str, Any]
     exp: int
     jti: str
     refresh: bool
@@ -54,7 +54,7 @@ def create_access_token(
     return str(token)
 
 
-def decode_token(token: str) -> TokenData:
+def decode_token(token: str) -> TokenData | None:
     try:
         token_data = jwt.decode(
             jwt=token,
@@ -62,11 +62,18 @@ def decode_token(token: str) -> TokenData:
             algorithms=[settings.JWT_ALGORITHM],
             leeway=10,
         )
-        return cast(TokenData, token_data)
-    except InvalidTokenError as e:
-        if isinstance(e, ExpiredSignatureError):
-            raise ExpiredSignatureError("Token has expired")
-        raise InvalidTokenError("Invalid token")
+        return TokenData(
+            user=token_data["user"],
+            exp=token_data["exp"],
+            jti=token_data["jti"],
+            refresh=token_data["refresh"],
+        )
+    except ExpiredSignatureError:
+        # logging.warning("Token expired")
+        return None
+    except jwt.PyJWTError:
+        # logging.exception(e)
+        return None
 
 
 def generate_token() -> str:
