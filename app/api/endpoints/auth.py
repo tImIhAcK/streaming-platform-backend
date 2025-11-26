@@ -274,7 +274,7 @@ async def reset_password(
 @auth_router.post("/change-password")
 async def change_password(
     password_change: PasswordChange,
-    current_user: Annotated[UserRead, Depends(get_current_active_user)],  # noqa: B008
+    current_user: Annotated[User, Depends(get_current_active_user)],  # noqa: B008
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
 ) -> JSONResponse:
 

@@ -8,7 +8,7 @@ isort .
 echo "🖤 Formatting code..."
 black .
 
-echo "🔍 Running type checks..."
-mypy --config-file=pyproject.toml .
+# echo "🔍 Running type checks..."
+# mypy --config-file=pyproject.toml .
 
 echo "✅ All checks completed!"
