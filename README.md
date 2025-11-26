@@ -86,8 +86,8 @@ A scalable live streaming platform with real-time chat, user authentication, str
 
 ### Phase 1: Foundation
 - [X] Set up FastAPI project structure
-- [ ] Database models and migrations
-- [ ] User authentication (register, login, JWT)
+- [X] Database models and migrations
+- [X] User authentication (register, login, JWT)
 - [ ] Basic CRUD for users and streams
 
 ### Phase 2: Streaming Core
