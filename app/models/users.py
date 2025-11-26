@@ -35,8 +35,7 @@ class User(UserBase, table=True):
     reset_token: Optional[str] = Field(default=None)
 
     reset_token_expires_at: Optional[datetime] = Field(
-        sa_column=Column(pg.TIMESTAMP(timezone=True), nullable=False),
-        default_factory=lambda: datetime.now(timezone.utc),
+        default=None, sa_column=Column(pg.TIMESTAMP(timezone=True), nullable=True)
     )
 
     password_hash: str = Field(exclude=True)
