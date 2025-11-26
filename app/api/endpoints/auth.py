@@ -1,28 +1,48 @@
-# from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 
 # from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm  # OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.core.deps import AccessTokenBearer, get_current_user  # RefreshTokenBearer
+from app.core.deps import (  # RefreshTokenBearer
+    AccessTokenBearer,
+    get_current_active_user,
+)
 from app.core.exceptions import (
     ConflictException,
     ResourceNotFoundException,
     ValidationException,
 )
 from app.core.redis import add_jti_to_blocklist
-from app.core.security import TokenData, create_access_token, verify_password
+from app.core.security import (
+    TokenData,
+    create_access_token,
+    generate_token,
+    get_password_hash,
+    verify_password,
+)
 from app.crud.users import UserCRUD
 from app.db.session import get_session
-from app.schemas.users import PublicUserCreate, TokenRead, UserRead
+from app.models.users import User
+from app.schemas.users import (
+    PasswordChange,
+    PasswordReset,
+    PasswordResetRequest,
+    PublicUserCreate,
+    TokenRead,
+    UserRead,
+)
 
 auth_crud = UserCRUD()
 auth_router = APIRouter(tags=["auth"])
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 async def send_email(to_email: str, subject: str, body: str) -> None:
@@ -165,7 +185,7 @@ async def activate_account(
 
 @auth_router.post("/logout")
 async def logout(
-    current_user: Annotated[UserRead, Depends(get_current_user)],  # noqa: B008
+    current_user: Annotated[UserRead, Depends(get_current_active_user)],  # noqa: B008
     token_data: Annotated[TokenData, Depends(AccessTokenBearer())],  # noqa: B008
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
 ) -> JSONResponse:
@@ -173,4 +193,102 @@ async def logout(
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Successfully logged out."},
+    )
+
+
+@auth_router.post("/forgot-password")
+async def forgot_password(
+    password_reset_request: PasswordResetRequest,
+    backend_tasks: BackgroundTasks,
+    session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
+) -> JSONResponse:
+    stmt = select(User).where(User.email == password_reset_request.email)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+    if not user:
+        raise ResourceNotFoundException(
+            resource_id=password_reset_request.email,
+            resource_type="User",
+        )
+
+    reset_token = generate_token()
+    user.reset_token = reset_token
+    user.reset_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    session.add(user)
+    await session.commit()
+
+    reset_link = f"{settings.SERVER_HOST}{settings.API_V1_STR}/auth/reset-password?token={reset_token}"
+    email_body = f"""
+    <h1>Password Reset Request</h1>
+    <p>To reset your password, please click the link below:</p>
+    <a href="{reset_link}">Reset Password</a>
+    <p>This link will expire in 1 hour.</p>
+    <p>If you did not request a password reset, please ignore this email.</p>
+    <p>Best regards,<br/>{settings.APP_NAME} Team</p>
+    """
+
+    backend_tasks.add_task(
+        send_email,
+        to_email=user.email,
+        subject=f"{settings.APP_NAME} Password Reset Request",
+        body=email_body,
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"message": "Password reset email sent."},
+    )
+
+
+@auth_router.post("/reset-password")
+async def reset_password(
+    password_reset: PasswordReset,
+    session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
+) -> JSONResponse:
+    stmt = select(User).where(User.reset_token == password_reset.token)
+    resrlt = await session.execute(stmt)
+    user = resrlt.scalar_one_or_none()
+    if not user:
+        raise ValidationException(
+            message="Invalid or expired reset token.",
+            details={"field": "token"},
+        )
+    if datetime.now(timezone.utc) > user.reset_token_expires_at:
+        raise ValidationException(
+            message="Reset token has expired.",
+            details={"field": "token"},
+        )
+
+    user.password_hash = get_password_hash(password_reset.new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    session.add(user)
+    await session.commit()
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"message": "Password has been reset successfully."},
+    )
+
+
+@auth_router.post("/change-password")
+async def change_password(
+    password_change: PasswordChange,
+    current_user: Annotated[UserRead, Depends(get_current_active_user)],  # noqa: B008
+    session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
+) -> JSONResponse:
+
+    if not verify_password(password_change.old_password, current_user.password_hash):
+        raise ValidationException(
+            message="Incorrect old password.",
+            details={"field": "current_password"},
+        )
+
+    current_user.password_hash = get_password_hash(password_change.new_password)
+    session.add(current_user)
+    await session.commit()
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"message": "Password has been changed successfully."},
     )
