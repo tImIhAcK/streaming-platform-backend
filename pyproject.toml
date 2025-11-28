@@ -10,9 +10,11 @@ dependencies = [
     "alembic>=1.17.2",
     "argon2-cffi>=25.1.0",
     "asyncpg>=0.30.0",
+    "authlib>=1.6.5",
     "bcrypt>=5.0.0",
     "black>=25.11.0",
     "fastapi[standard]>=0.121.3",
+    "httpx>=0.28.1",
     "isort>=7.0.0",
     "mypy>=1.18.2",
     "passlib[bcrypt]>=1.7.4",
@@ -58,7 +60,7 @@ explicit_package_bases = true
 module = "pydantic_settings.*"
 ignore_missing_imports = true
 
-[[ tool.mypy.overrides]]
+[[tool.mypy.overrides]]
 module = "pydantic.*"
 ignore_missing_imports = true
 

@@ -4,7 +4,9 @@ from typing import Optional
 
 import sqlalchemy.dialects.postgresql as pg
 from pydantic import EmailStr
-from sqlmodel import Column, Field, SQLModel
+from sqlmodel import Column, Field, Relationship, SQLModel
+
+from app.models.streams import Stream
 
 
 def utc_now() -> datetime:
@@ -53,6 +55,8 @@ class User(UserBase, table=True):
             onupdate=utc_now,
         )
     )
+
+    streams: Optional[list["Stream"]] = Relationship(back_populates="user")
 
 
 class Token(SQLModel, table=True):

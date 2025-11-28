@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     def ALLOWED_HOSTS(self) -> list[str]:
         return self.all_cors_origins
 
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_OAUTH_REDIRECT_URI: str
+
 
 def get_settings() -> Settings:
     return Settings()
