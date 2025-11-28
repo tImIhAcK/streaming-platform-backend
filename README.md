@@ -88,7 +88,7 @@ A scalable live streaming platform with real-time chat, user authentication, str
 - [X] Set up FastAPI project structure
 - [X] Database models and migrations
 - [X] User authentication (register, login, JWT)
-- [ ] Basic CRUD for users and streams
+- [X] Basic CRUD for users and streams
 
 ### Phase 2: Streaming Core
 - [ ] Set up media server (Nginx-RTMP)
