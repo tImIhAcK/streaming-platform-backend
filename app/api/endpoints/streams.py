@@ -1,6 +1,6 @@
 from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Path, status
 
 # from fastapi.exceptions import HTTPException
 # from fastapi.responses import JSONResponse
@@ -39,6 +39,7 @@ async def create_stream(
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
     current_user: Annotated[User, Depends(get_current_active_user)],  # noqa: B008
 ) -> StreamResponse:
+    """Create a new stream"""
     stream = await stream_crud.create_stream(
         session, str(current_user.uid), stream_data
     )
@@ -51,6 +52,7 @@ async def get_live_streams(
     skip: int = 0,
     limit: int = 100,
 ) -> List[StreamPublicResponse]:
+    """Get all currently live streams"""
     streams = await stream_crud.get_live_streams(session, skip, limit)
     return streams
 
@@ -66,6 +68,7 @@ async def get_my_streams(
     limit: int = 0,
     current_user=Annotated[User, Depends(get_current_active_user)],  # noqa: B008
 ) -> List[StreamResponse]:
+    """Get current user's streams"""
     streams = await stream_crud.get_streams_by_user(
         session, str(current_user.uid), skip, limit
     )
@@ -75,8 +78,9 @@ async def get_my_streams(
 @stream_router.get("/{stream_id}", response_model=Optional[StreamPublicResponse])
 async def get_stream(
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
-    stream_id: Annotated[str, Query(...)],  # noqa: B008
+    stream_id: Annotated[str, Path(...)],  # noqa: B008
 ) -> Optional[StreamPublicResponse]:
+    """Get stream by ID (public info)"""
     stream = await stream_crud.get_stream_by_id(session, stream_id)
     if not stream:
         ResourceNotFoundException(resource_id=stream_id, resource_type="Stream")
@@ -90,7 +94,7 @@ async def get_stream(
 )
 async def get_stream_details(
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
-    stream_id: Annotated[str, Query(...)],  # noqa: B008
+    stream_id: Annotated[str, Path(...)],  # noqa: B008
 ) -> Optional[StreamResponse]:
     stream = await stream_crud.get_stream_by_id(session, stream_id)
     if not stream:
@@ -105,10 +109,11 @@ async def get_stream_details(
 )
 async def update_stream(
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
-    stream_id: Annotated[str, Query(...)],  # noqa: B008
+    stream_id: Annotated[str, Path(...)],  # noqa: B008
     stream_data: StreamUpdate,
     current_user=Annotated[User, Depends(get_current_active_user)],  # noqa: B008
 ) -> StreamResponse:
+    """Update stream details"""
     stream = await stream_crud.update_stream(
         session, stream_id, str(current_user.uid), stream_data
     )
@@ -126,8 +131,9 @@ async def update_stream(
 async def delete_stream(
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
     current_user: Annotated["User", Depends(get_current_active_user)],  # noqa: B008
-    stream_id: str,
+    stream_id: Annotated[str, Path(...)],  # noqa: B008
 ):
+    """Delete a stream"""
     deleted = await stream_crud.delete_stream(
         session=session,
         stream_id=stream_id,
@@ -138,3 +144,33 @@ async def delete_stream(
         raise ResourceNotFoundException(resource_id=stream_id, resource_type="Stream")
 
     return None
+
+
+@stream_router.post(
+    "/{stream_id}/start",
+    response_model=StreamResponse,
+    dependencies=[admin_role_checker, streamer_role_checker, moderator_role_checker],
+)
+async def start_stream(
+    session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
+    stream_id: Annotated[str, Path(...)],  # noqa: B008,
+    current_user=Annotated[User, Depends(get_current_active_user)],  # noqa: B008
+) -> StreamResponse:
+    """Start/go live with a stream"""
+    stream = await stream_crud.start_stream(session, stream_id, str(current_user.uid))
+    return stream
+
+
+@stream_router.post(
+    "/{stream_id}/stop",
+    response_model=StreamResponse,
+    dependencies=[admin_role_checker, streamer_role_checker, moderator_role_checker],
+)
+async def stop_stream(
+    session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
+    stream_id: Annotated[str, Path(...)],  # noqa: B008,
+    current_user=Annotated[User, Depends(get_current_active_user)],  # noqa: B008
+) -> StreamResponse:
+    """Start/go live with a stream"""
+    stream = await stream_crud.start_stream(session, stream_id, str(current_user.uid))
+    return stream
