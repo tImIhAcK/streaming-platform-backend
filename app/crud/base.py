@@ -23,9 +23,9 @@ class BaseCRUD(Generic[ModelType]):
             raise e
 
     async def get(
-        self, session: AsyncSession, id_value: Any, field: str = "id"
+        self, session: AsyncSession, value: Any, field: str = "id"
     ) -> Optional[ModelType]:
-        query = select(self.model).where(getattr(self.model, field) == id_value)
+        query = select(self.model).where(getattr(self.model, field) == value)
         result = await session.execute(query)
         return cast(Optional[ModelType], result.scalar_one_or_none())
 
@@ -36,17 +36,17 @@ class BaseCRUD(Generic[ModelType]):
         return cast(List[ModelType], result.scalars().all())
 
     async def update(
-        self, session: AsyncSession, id_value: Any, data: dict, field: str = "id"
+        self, session: AsyncSession, value: Any, data: dict, field: str = "id"
     ) -> Optional[ModelType]:
         result = await session.execute(
-            select(self.model).where(getattr(self.model, field) == id_value)
+            select(self.model).where(getattr(self.model, field) == value)
         )
         db_obj = result.scalar_one_or_none()
         if not db_obj:
             return None
 
-        for key, value in data.items():
-            setattr(db_obj, key, value)
+        for key, value_ in data.items():
+            setattr(db_obj, key, value_)
 
         if hasattr(db_obj, "updated_at"):
             db_obj.updated_at = datetime.now(timezone.utc)
@@ -61,10 +61,10 @@ class BaseCRUD(Generic[ModelType]):
             raise e
 
     async def delete(
-        self, session: AsyncSession, id_value: Any, field: str = "id"
+        self, session: AsyncSession, value: Any, field: str = "id"
     ) -> bool:
         result = await session.execute(
-            select(self.model).where(getattr(self.model, field) == id_value)
+            select(self.model).where(getattr(self.model, field) == value)
         )
         db_obj = result.scalar_one_or_none()
         if not db_obj:
