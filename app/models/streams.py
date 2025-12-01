@@ -26,7 +26,7 @@ class StreamBase(SQLModel):
         sa_column=Column(pg.VARCHAR, nullable=True),
         default=None,
     )
-    thunbnail_url: Optional[str] = Field(default=None, nullable=True)
+    thumbnail_url: Optional[str] = Field(default=None, nullable=True)
 
     # Stream credentials
     stream_key: str = Field(max_length=100, unique=True, nullable=False, index=True)
