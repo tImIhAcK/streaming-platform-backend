@@ -86,14 +86,44 @@ class StreamCrud(BaseCRUD[Stream]):
         self,
         session: AsyncSession,
         stream_id: str,
+        user_id: str,
         stream_data: StreamUpdate,
     ) -> Optional[Stream]:
-        data = stream_data.model_dump(exclude_unset=True)
-        updated_stream = await self.update(session, stream_id, data, field="sid")
-        return updated_stream if updated_stream else None
 
-    async def delete_stream(self, session: AsyncSession, stream_id: str) -> bool:
-        return await self.delete(session, stream_id, field="sid")
+        # Query for stream AND ownership
+        result = await session.execute(
+            select(Stream).where(Stream.sid == stream_id, Stream.user_id == user_id)
+        )
+        stream: Stream | None = result.scalars().first()
+
+        if stream is None:
+            return None
+
+        updates = stream_data.model_dump(exclude_unset=True)
+        for key, value in updates.items():
+            setattr(stream, key, value)
+
+        stream.updated_at = datetime.now(timezone.utc)
+
+        await session.commit()
+        await session.refresh(stream)
+        return stream
+
+    async def delete_stream(
+        self, session: AsyncSession, stream_id: str, user_id: str
+    ) -> bool:
+
+        result = await session.execute(
+            select(Stream).where(Stream.sid == stream_id, Stream.user_id == user_id)
+        )
+        stream: Stream | None = result.scalars().first()
+
+        if stream is None:
+            return False
+
+        await session.delete(stream)
+        await session.commit()
+        return True
 
     @staticmethod
     async def start_stream(
