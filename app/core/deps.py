@@ -17,7 +17,7 @@ user_crud = UserCRUD()
 
 class TokenBearer(HTTPBearer):
     def __init__(self, auto_error: bool = True) -> None:
-        super().__init__(auto_error=auto_error)
+        super().__init__(scheme_name="Bearer", auto_error=auto_error)
 
     async def __call__(self, request: Request) -> TokenData:
         creds: HTTPAuthorizationCredentials | None = await super().__call__(request)
