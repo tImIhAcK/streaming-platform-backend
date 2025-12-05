@@ -3,7 +3,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, EmailStr
 
-from app.enums.users import UserRole
+from app.enums.roles import UserRole
 
 
 class UserCreate(BaseModel):
@@ -32,7 +32,7 @@ class UserRead(BaseModel):
     last_name: Optional[str] = None
     is_active: bool
     is_verified: bool
-    role: str
+    role: UserRole
 
 
 class UserReadWithToken(UserRead):
@@ -44,7 +44,7 @@ class UserUpdate(BaseModel):
     last_name: Optional[str] = None
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
-    role: Optional[list[str]] = None
+    role: Optional[UserRole] = None
 
 
 class TokenRead(BaseModel):

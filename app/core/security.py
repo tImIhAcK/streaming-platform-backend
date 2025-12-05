@@ -29,51 +29,55 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bool(pwd_context.verify(plain_password, hashed_password))
 
 
-def create_access_token(
-    user_data: Dict[str, Any],
-    expires_delta: timedelta | None = None,
-    refresh: bool = False,
-) -> str:
-    payload: Dict[str, Any] = {
-        "user": user_data,
-        "exp": int(
-            (
-                datetime.now(timezone.utc)
-                + (
-                    expires_delta
-                    if expires_delta is not None
-                    else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-                )
-            ).timestamp()
-        ),
-        "jti": str(uuid.uuid4()),
-        "refresh": refresh,
-    }
+class JWTHandler:
+    @staticmethod
+    def create_access_token(
+        user_data: Dict[str, Any],
+        expires_delta: timedelta | None = None,
+        refresh: bool = False,
+    ) -> str:
+        payload: Dict[str, Any] = {
+            "user": user_data,
+            "exp": int(
+                (
+                    datetime.now(timezone.utc)
+                    + (
+                        expires_delta
+                        if expires_delta is not None
+                        else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+                    )
+                ).timestamp()
+            ),
+            "jti": str(uuid.uuid4()),
+            "refresh": refresh,
+        }
 
-    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
-    return str(token)
-
-
-def decode_token(token: str) -> TokenData | None:
-    try:
-        token_data = jwt.decode(
-            jwt=token,
-            key=settings.JWT_SECRET,
-            algorithms=[settings.JWT_ALGORITHM],
-            leeway=10,
+        token = jwt.encode(
+            payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
         )
-        return TokenData(
-            user=token_data["user"],
-            exp=token_data["exp"],
-            jti=token_data["jti"],
-            refresh=token_data["refresh"],
-        )
-    except ExpiredSignatureError:
-        # logging.warning("Token expired")
-        return None
-    except jwt.PyJWTError:
-        # logging.exception(e)
-        return None
+        return str(token)
+
+    @staticmethod
+    def decode_token(token: str) -> TokenData | None:
+        try:
+            token_data = jwt.decode(
+                jwt=token,
+                key=settings.JWT_SECRET,
+                algorithms=[settings.JWT_ALGORITHM],
+                leeway=10,
+            )
+            return TokenData(
+                user=token_data["user"],
+                exp=token_data["exp"],
+                jti=token_data["jti"],
+                refresh=token_data["refresh"],
+            )
+        except ExpiredSignatureError:
+            # logging.warning("Token expired")
+            return None
+        except jwt.PyJWTError:
+            # logging.exception(e)
+            return None
 
 
 def generate_token() -> str:

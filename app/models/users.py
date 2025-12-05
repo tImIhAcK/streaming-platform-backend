@@ -4,6 +4,9 @@ from typing import Optional
 
 import sqlalchemy.dialects.postgresql as pg
 from pydantic import EmailStr
+from sqlmodel import Column, Field, SQLModel, String
+
+from app.enums.roles import UserRole
 from sqlmodel import Column, Field, Relationship, SQLModel
 
 from app.models.streams import Stream
@@ -21,8 +24,8 @@ class UserBase(SQLModel):
     is_active: bool = Field(default=False)
     is_verified: bool = Field(default=False)
     role: str = Field(
-        sa_column=Column(pg.VARCHAR, nullable=True),
-        default=None,
+        sa_column=Column(String, nullable=True),
+        default=UserRole.VIEWER,
     )
 
 

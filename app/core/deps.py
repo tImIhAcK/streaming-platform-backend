@@ -7,7 +7,7 @@ from fastapi.security.http import HTTPAuthorizationCredentials
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.redis import token_in_blocklist
-from app.core.security import TokenData, decode_token
+from app.core.security import JWTHandler, TokenData
 from app.crud.users import UserCRUD
 from app.db.session import get_session
 from app.models.users import User
@@ -32,7 +32,7 @@ class TokenBearer(HTTPBearer):
             )
 
         token = creds.credentials
-        token_data = decode_token(token)
+        token_data = JWTHandler.decode_token(token)
 
         if token_data is None:
             raise HTTPException(
@@ -108,10 +108,10 @@ class RoleChecker:
         self.allowed_roles = allowed_roles
 
     def __call__(
-        self, current_user: User = Depends(get_current_user)  # noqa: B008
-    ) -> bool:
+        self, current_user: User = Depends(get_current_active_user)  # noqa: B008
+    ) -> User:
         if current_user.role in self.allowed_roles:
-            return True
+            return current_user
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User not allowed to perform this action",

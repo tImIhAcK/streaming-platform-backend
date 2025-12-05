@@ -21,8 +21,8 @@ from app.core.exceptions import (
 )
 from app.core.redis import add_jti_to_blocklist
 from app.core.security import (
+    JWTHandler,
     TokenData,
-    create_access_token,
     generate_token,
     get_password_hash,
     verify_password,
@@ -126,7 +126,7 @@ async def login(
             message="Plase verify your email first.",
         )
 
-    access_token = create_access_token(
+    access_token = JWTHandler.create_access_token(
         user_data={
             "username": user.username,
             "email": user.email,
@@ -139,7 +139,7 @@ async def login(
         }
     )
 
-    refresh_token = create_access_token(
+    refresh_token = JWTHandler.create_access_token(
         user_data={
             "username": user.username,
             "email": user.email,
