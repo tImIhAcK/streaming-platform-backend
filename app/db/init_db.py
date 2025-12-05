@@ -2,7 +2,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.crud.users import UserCRUD
-from app.enums.users import UserRole
+from app.enums.roles import UserRole
 from app.schemas.users import AdminUserCreate, UserUpdate
 
 
