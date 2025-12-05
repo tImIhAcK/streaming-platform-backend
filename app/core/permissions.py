@@ -123,9 +123,8 @@ class PermissionChecker:
 
         if self.mode == "all":
             if not self.permissions.issubset(user_permissions):
-                missing = self.permissions - user_permissions
                 raise ForbiddenException(
-                    message=f"Insufficient permissions. Missing: {', '.join(p.value for p in missing)}"
+                    message="Insufficient permission to carry out this operation."
                 )
 
         elif self.mode == "any":
