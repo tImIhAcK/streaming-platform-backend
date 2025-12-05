@@ -4,11 +4,9 @@ from typing import Optional
 
 import sqlalchemy.dialects.postgresql as pg
 from pydantic import EmailStr
-from sqlmodel import Column, Field, SQLModel, String
+from sqlmodel import Column, Field, Relationship, SQLModel, String
 
 from app.enums.roles import UserRole
-from sqlmodel import Column, Field, Relationship, SQLModel
-
 from app.models.streams import Stream
 
 
