@@ -7,6 +7,9 @@ from pydantic import EmailStr
 from sqlmodel import Column, Field, SQLModel, String
 
 from app.enums.roles import UserRole
+from sqlmodel import Column, Field, Relationship, SQLModel
+
+from app.models.streams import Stream
 
 
 def utc_now() -> datetime:
@@ -55,6 +58,8 @@ class User(UserBase, table=True):
             onupdate=utc_now,
         )
     )
+
+    streams: Optional[list["Stream"]] = Relationship(back_populates="user")
 
 
 class Token(SQLModel, table=True):

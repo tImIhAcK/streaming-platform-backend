@@ -8,6 +8,7 @@ from sqlmodel import SQLModel
 
 from alembic import context  # type: ignore
 from app.core.config import settings
+from app.models.streams import Stream  # noqa: F401
 from app.models.users import User  # noqa: F401
 
 # from sqlmodel import SQLModel
