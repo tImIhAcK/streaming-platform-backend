@@ -35,7 +35,7 @@ class StreamCrud(BaseCRUD[Stream]):
             category=stream_data.category,
             is_private=stream_data.is_private,
             stream_key=stream_key,
-            rtmp_url=f"{settings.RTMP_BASE_URL}/{stream_key}",
+            rtmp_url=f"{settings.RTMP_SERVER_URL}/{stream_key}",
             hls_url=f"{settings.HLS_BASE_URL}/{stream_key}/index.m3u8",
         )
         created_stream = await self.create(session, new_stream)
