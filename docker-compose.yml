@@ -1,0 +1,64 @@
+# Development configuration
+
+services:
+  app:
+    build: .
+    container_name: streaming_backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env.local
+    volumes:
+      - .:/app
+      - ./media:/app/media
+    restart: unless-stopped
+    networks:
+      - streaming_network
+
+  db:
+    image: postgres:16-alpine
+    container_name: streaming_db
+    restart: unless-stopped
+    env_file: .env.local
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-streameruser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - streaming_network
+
+  redis:
+    image: redis:latest
+    container_name: redis_cache
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6383:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - streaming_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  streaming_network:
+    driver: bridge
