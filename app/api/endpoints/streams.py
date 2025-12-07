@@ -15,9 +15,11 @@ from app.schemas.streams import (
     StreamResponse,
     StreamUpdate,
 )
+from app.services.streams import StreamService
 
 stream_router = APIRouter(tags=["streams"])
 stream_crud = StreamCrud()
+stream_service = StreamService()
 
 
 # --- Generalized permission dependency ---
@@ -146,7 +148,7 @@ async def start_stream(
         ),
     ],
 ) -> StreamResponse:
-    return await stream_crud.start_stream(session, stream_id, str(current_user.uid))
+    return await stream_service.start_stream(session, stream_id, str(current_user.uid))
 
 
 @stream_router.post(
@@ -163,4 +165,4 @@ async def stop_stream(
         ),
     ],
 ) -> StreamResponse:
-    return await stream_crud.stop_stream(session, stream_id, str(current_user.uid))
+    return await stream_service.stop_stream(session, stream_id, str(current_user.uid))

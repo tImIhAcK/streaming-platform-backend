@@ -2,8 +2,16 @@ import json
 import secrets
 from typing import Any, List, Union
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# from dotenv import load_dotenv
+
+# load_dotenv(dotenv_path='.env')
+
+# ENV = os.environ.get("ENVIRONMENT", "development").strip("'\"").lower()
+# ENV_FILE = ".env.prod" if ENV == "production" else ".env.local"
+# print(ENV_FILE)
 
 
 class Settings(BaseSettings):
@@ -23,7 +31,14 @@ class Settings(BaseSettings):
     FRONTEND_HOST: Union[str, list[str]] = []
     BACKEND_CORS_ORIGINS: Union[str, list[str]] = []
 
-    DATABASE_URL: str
+    DATABASE_URL: str = ""
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    ENVIRONMENT: str
+
     SUPERUSER_USERNAME: str
     SUPERUSER_PASSWORD: str
     SUPERUSER_EMAIL: str
@@ -31,7 +46,18 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     REDIS_URL: str
     LOG_LEVEL: str
-    ENVIRONMENT: str = "development"
+
+    @model_validator(mode="after")
+    def assemble_db_url(self) -> "Settings":
+        # If DATABASE_URL is not provided or is empty, construct it
+        if not self.DATABASE_URL:
+            self.DATABASE_URL = (
+                f"postgresql+asyncpg://"
+                f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/"
+                f"{self.POSTGRES_DB}"
+            )
+        return self
 
     @field_validator("FRONTEND_HOST", "BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
