@@ -1,6 +1,6 @@
 import json
 import secrets
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     REDIS_URL: str
     LOG_LEVEL: str
+
+    RTMP_SERVER_URL: str
+    HLS_BASE_URL: str
+    RTMP_WEBHOOK_SECRET: Optional[str] = None
 
     @model_validator(mode="after")
     def assemble_db_url(self) -> "Settings":

@@ -53,11 +53,32 @@ services:
     networks:
       - streaming_network
 
+  nginx-rtmp:
+    build:
+      context: ./docker/nginx-rtmp
+      dockerfile: Dockerfile
+    ports:
+      - "1935:1935" # RMTP
+      - "8080:8080" # HLS
+      - "8088:8088" # RTMP stats
+    volumes:
+      - ./docker/nginx-rtmp/nginx.conf:/etc/nginx/nginx.conf
+      - hls_data:/tmp/hls
+      - recordings:/tmp/rec
+    depends_on:
+      - redis
+      - app
+    networks:
+      - streaming_network
+
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
+  hls_data:
+  recordings:
 
 networks:
   streaming_network:
