@@ -23,19 +23,19 @@ stream_crud = StreamCrud()
 
 @router.post("/auth/publish")
 async def authenticate_publish(
-    key: Annotated[str, Form(...)],  # Stream key
+    name: Annotated[str, Form(...)],  # Stream key
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     """
     Authenticate RTMP publish request
     Called by Nginx-RTMP when someone tries to publish
     """
-    logger.info(f"Publish auh request for stream key: {key}")
+    logger.info(f"Publish auth request for stream key: {name}")
 
-    stream = await stream_crud.get_stream_by_key(session, key)
+    stream = await stream_crud.get_stream_by_key(session, name)
 
     if not stream:
-        logger.warning(f"Invalid stream key attempted: {key}")
+        logger.warning(f"Invalid stream key attempted: {name}")
         raise UnauthorizedException(message="Invalid stream key")
 
     logger.info(f"Stream authenticated: {stream.sid} - {stream.title}")
@@ -44,15 +44,15 @@ async def authenticate_publish(
 
 @router.post("/webhook/publish_done")
 async def on_publish_done(
-    key: Annotated[str, Form(...)],
+    name: Annotated[str, Form(...)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     """
     Called when publishing starts successfully
     """
-    logger.info(f"Stream started: {key}")
+    logger.info(f"Stream started: {name}")
 
-    stream = await stream_crud.get_stream_by_key(session, key)
+    stream = await stream_crud.get_stream_by_key(session, name)
     if stream and not stream.is_live:
         await stream_service.start_stream(session, str(stream.sid), str(stream.user_id))
 
@@ -61,15 +61,15 @@ async def on_publish_done(
 
 @router.post("/webhook/done")
 async def on_stream_done(
-    key: Annotated[str, Form(...)],
+    name: Annotated[str, Form(...)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     """
     Called when stream ends
     """
-    logger.info(f"Stream ends: {key}")
+    logger.info(f"Stream ends: {name}")
 
-    stream = await stream_crud.get_stream_by_key(session, key)
+    stream = await stream_crud.get_stream_by_key(session, name)
     if stream and stream.is_live:
         await stream_service.stop_stream(session, str(stream.sid), str(stream.user_id))
 
@@ -78,17 +78,17 @@ async def on_stream_done(
 
 @router.post("/webhook/play")
 async def on_play(
-    key: Annotated[str, Form(...)],
+    name: Annotated[str, Form(...)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     """
     Called when a viewer starts watching
     """
-    stream = await stream_crud.get_stream_by_key(session, key)
+    stream = await stream_crud.get_stream_by_key(session, name)
     if stream:
         # Increment viewer count
         await stream_service.update_viewer_count(
-            session, str(stream.sid), stream.current_views + 1
+            session, str(stream.sid), stream.current_viewers + 1
         )
         # Increment total views
         await stream_service.increment_total_views(session, str(stream.sid))
@@ -98,17 +98,17 @@ async def on_play(
 
 @router.post("/webhook/play_done")
 async def on_play_done(
-    key: Annotated[str, Form(...)],
+    name: Annotated[str, Form(...)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     """
     Called when a viewer stops watching
     """
-    stream = await stream_crud.get_stream_by_key(session, key)
+    stream = await stream_crud.get_stream_by_key(session, name)
     if stream and stream.current_viewers > 0:
         # Decrement viewer count
         await stream_service.update_viewer_count(
-            session, str(stream.sid), stream.current_views - 1
+            session, str(stream.sid), stream.current_viewers - 1
         )
 
     return {"status": "ok"}
