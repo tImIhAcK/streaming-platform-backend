@@ -91,10 +91,10 @@ A scalable live streaming platform with real-time chat, user authentication, str
 - [X] Basic CRUD for users and streams
 
 ### Phase 2: Streaming Core
-- [ ] Set up media server (Nginx-RTMP)
-- [ ] RTMP ingest integration
-- [ ] Stream start/stop endpoints
-- [ ] Basic HLS playback
+- [X] Set up media server (Nginx-RTMP)
+- [X] RTMP ingest integration
+- [X] Stream start/stop endpoints
+- [X] Basic HLS playback
 
 ### Phase 3: Real-Time Features
 - [ ] WebSocket chat implementation
