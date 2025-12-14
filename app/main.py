@@ -1,9 +1,11 @@
 import logging
 import signal
+from contextlib import asynccontextmanager
 
 # from contextlib import asynccontextmanager
 from typing import Any, Dict, Tuple, Union
 
+import redis.asyncio as redis
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -18,6 +20,17 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.router import routes
 from app.core.config import settings
 from app.core.exceptions import AppException, app_exception_handler
+from app.core.redis_rate_limiter import RedisTokenBucketRateLimiter
+
+# from app.core.rate_limiter import (
+#     FixedWindowRateLimiter,
+#     SlidingWindowRateLimiter,
+#     TokenBucketRateLimiter,
+#     RateLimitMiddleware
+# )
+
+# from app.utils.helper import get_user_identifier
+
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +52,45 @@ def custom_generate_unique_id(route: APIRoute) -> str:
     return str(route.name)
 
 
+_redis_client = None
+# _redis_rate_limiter = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    redis_url = settings.REDIS_URL
+    app.state.redis = redis.from_url(redis_url, decode_responses=True)
+
+    try:
+        await app.state.redis.ping()
+        logger.info("Connected to Redis for rate limiting")
+    except Exception as e:
+        logger.info(f"⚠️ Redis unavailable, rate limiting will fail open: {e}")
+
+    # Create global Redis rate limiter
+    app.state.rate_limiter = RedisTokenBucketRateLimiter(
+        redis_client=app.state.redis,
+        capacity=60,  # 60 requests
+        refill_rate=1.0,  # 1 request per sec = 60/min
+        prefix="ratelimit:",
+    )
+
+    logger.info("✅ Redis RateLimitMiddleware enabled")
+
+    # Yield to run the application
+    yield
+
+    # ---------------------------
+    # SHUTDOWN
+    # ---------------------------
+    if app.state.redis:
+        try:
+            await app.state.redis.close()
+            print("✅ Redis connection closed")
+        except Exception as e:
+            print(f"⚠️ Error closing Redis: {e}")
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
@@ -47,8 +99,10 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs",
     redoc_url=f"{settings.API_V1_STR}/redoc",
+    lifespan=lifespan,
     generate_unique_id_function=custom_generate_unique_id,
 )
+
 
 # 📂 Static Files Configuration
 try:
