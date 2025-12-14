@@ -147,9 +147,8 @@ class TokenBucketRateLimiter:
 class RateLimitMiddleware:
     """Global rate limiting middleware"""
 
-    def __init__(self, app, limiter, get_identifier: Callable):
+    def __init__(self, app, get_identifier: Callable):
         self.app = app
-        self.limiter = limiter
         self.get_identifier = get_identifier
 
     async def __call__(self, scope, receive, send):
@@ -157,9 +156,16 @@ class RateLimitMiddleware:
             return await self.app(scope, receive, send)
 
         request = Request(scope, receive)
-        identifier = self.get_identifier(request)
 
-        allowed, info = self.limiter.is_allowed(identifier)
+        # Access rate_limiter from app.state at request time, not at init time
+        if not hasattr(request.app.state, "rate_limiter"):
+            # If Redis isn't ready yet, allow the request
+            await self.app(scope, receive, send)
+            return
+
+        limiter = request.app.state.rate_limiter
+        identifier = self.get_identifier(request)
+        allowed, info = await limiter.is_allowed(identifier)
 
         async def send_with_headers(message):
             if message["type"] == "http.response.start":

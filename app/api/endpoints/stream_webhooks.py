@@ -6,10 +6,11 @@ These endpoints are called by Nginx-RTMP server
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, Request
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.exceptions import UnauthorizedException
+from app.core.redis_rate_limiter import redis_rate_limit
 from app.crud.streams import StreamCrud
 from app.db.session import get_session
 from app.services.streams import StreamService
@@ -21,8 +22,11 @@ stream_service = StreamService()
 stream_crud = StreamCrud()
 
 
+# RTMP authentication - moderate: 30 attempts per minute per IP
 @router.post("/auth/publish")
+@redis_rate_limit(capacity=30, refill_rate=0.5, prefix="rtmp_auth:")
 async def authenticate_publish(
+    request: Request,
     name: Annotated[str, Form(...)],  # Stream key
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
@@ -42,8 +46,11 @@ async def authenticate_publish(
     return {"status": "ok"}
 
 
+# Publish start - strict: 10 per minute per IP
 @router.post("/webhook/publish_done")
+@redis_rate_limit(capacity=10, refill_rate=0.167, prefix="rtmp_start:")
 async def on_publish_done(
+    request: Request,
     name: Annotated[str, Form(...)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
@@ -59,8 +66,11 @@ async def on_publish_done(
     return {"status": "ok"}
 
 
+# Publish end - strict: 10 per minute per IP
 @router.post("/webhook/done")
+@redis_rate_limit(capacity=10, refill_rate=0.167, prefix="rtmp_stop:")
 async def on_stream_done(
+    request: Request,
     name: Annotated[str, Form(...)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
@@ -76,8 +86,11 @@ async def on_stream_done(
     return {"status": "ok"}
 
 
+# Viewer play - lenient: 200 per minute per IP
 @router.post("/webhook/play")
+@redis_rate_limit(capacity=200, refill_rate=3.33, prefix="rtmp_play:")
 async def on_play(
+    request: Request,
     name: Annotated[str, Form(...)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
@@ -96,8 +109,11 @@ async def on_play(
     return {"status": "ok"}
 
 
+# Viewer stop - lenient: 200 per minute per IP
 @router.post("/webhook/play_done")
+@redis_rate_limit(capacity=200, refill_rate=3.33, prefix="rtmp_play_done:")
 async def on_play_done(
+    request: Request,
     name: Annotated[str, Form(...)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Tuple
+from functools import wraps
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import redis.asyncio as redis
+from fastapi import HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
@@ -130,3 +132,97 @@ class RedisTokenBucketRateLimiter:
             "reset": int(reset_ts),
         }
         return allowed, info
+
+
+def redis_rate_limit(
+    capacity: int,
+    refill_rate: float,
+    prefix: str = "endpoint_rl:",
+    get_identifier: Optional[Callable[[Request], str]] = None,
+):
+    """
+    Decorator for endpoint-specific rate limiting using Redis Token Bucket.
+
+    Args:
+        capacity: Maximum tokens (requests) in the bucket
+        refill_rate: Tokens added per second
+        prefix: Redis key prefix for this endpoint
+        get_identifier: Optional function to extract identifier from request
+                       (defaults to IP address)
+
+    Example:
+        @router.post("/login")
+        @redis_rate_limit(capacity=5, refill_rate=0.083)  # 5 requests per minute
+        async def login(request: Request, ...):
+            ...
+    """
+
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Extract request from args/kwargs
+            request = None
+            for arg in args:
+                if isinstance(arg, Request):
+                    request = arg
+                    break
+            if not request and "request" in kwargs:
+                request = kwargs["request"]
+
+            if not request:
+                raise ValueError(
+                    f"Request object not found in endpoint {func.__name__}. "
+                    "Make sure your endpoint has a 'request: Request' parameter."
+                )
+
+            # Get Redis client from app state
+            if not hasattr(request.app.state, "redis"):
+                logger.warning(
+                    "Redis not available in app.state, allowing request through"
+                )
+                return await func(*args, **kwargs)
+
+            # Create endpoint-specific rate limiter
+            limiter = RedisTokenBucketRateLimiter(
+                redis_client=request.app.state.redis,
+                capacity=capacity,
+                refill_rate=refill_rate,
+                prefix=f"{prefix}{func.__name__}:",
+            )
+
+            # Get identifier
+            if get_identifier:
+                identifier = get_identifier(request)
+            else:
+                # Default: use IP address
+                identifier = request.client.host if request.client else "unknown"
+
+            # Check rate limit
+            allowed, info = await limiter.is_allowed(identifier)
+
+            if not allowed:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Rate limit exceeded for this endpoint",
+                    headers={
+                        "X-RateLimit-Limit": str(info["limit"]),
+                        "X-RateLimit-Remaining": str(info["remaining"]),
+                        "X-RateLimit-Reset": str(info["reset"]),
+                        "Retry-After": str(max(0, info["reset"] - int(time.time()))),
+                    },
+                )
+
+            # Execute endpoint
+            response = await func(*args, **kwargs)
+
+            # Add rate limit headers if response supports it
+            if hasattr(response, "headers"):
+                response.headers["X-RateLimit-Limit"] = str(info["limit"])
+                response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
+                response.headers["X-RateLimit-Reset"] = str(info["reset"])
+
+            return response
+
+        return wrapper
+
+    return decorator

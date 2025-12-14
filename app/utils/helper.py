@@ -21,6 +21,3 @@ def get_user_identifier(request: Request) -> str:
 
     # Fallback to IP
     return str(get_client_ip(request))
-
-
-# 8168751375

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 
 # from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
@@ -20,6 +20,7 @@ from app.core.exceptions import (
     ValidationException,
 )
 from app.core.redis import add_jti_to_blocklist
+from app.core.redis_rate_limiter import redis_rate_limit
 from app.core.security import (
     JWTHandler,
     TokenData,
@@ -38,6 +39,7 @@ from app.schemas.users import (
     TokenRead,
     UserRead,
 )
+from app.utils.helper import get_user_identifier
 
 auth_crud = UserCRUD()
 auth_router = APIRouter(tags=["auth"])
@@ -53,10 +55,13 @@ async def send_email(to_email: str, subject: str, body: str) -> None:
     print(body)
 
 
+# Strict rate limit for registration: 3 requests per 5 minutes
 @auth_router.post(
     "/register", response_model=UserRead, status_code=status.HTTP_201_CREATED
 )
+@redis_rate_limit(capacity=3, refill_rate=0.01, prefix="auth_register:")
 async def register_user(
+    request: Request,
     user_create: PublicUserCreate,
     backend_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
@@ -99,8 +104,11 @@ async def register_user(
     return user_read
 
 
+# Strict rate limit for login: 5 attempts per minute
 @auth_router.post("/login", response_model=TokenRead)
+@redis_rate_limit(capacity=5, refill_rate=0.083, prefix="auth_login:")
 async def login(
+    request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],  # noqa: B008
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
 ) -> TokenRead:
@@ -159,8 +167,11 @@ async def login(
     )
 
 
+# Lenient rate limit for activation: 10 per minute
+@redis_rate_limit(capacity=10, refill_rate=0.167, prefix="auth_activate:")
 @auth_router.get("/activate")
 async def activate_account(
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
     token: str = Query(...),  # noqa: B008
 ) -> JSONResponse:
@@ -183,8 +194,16 @@ async def activate_account(
     )
 
 
+# Lenient rate limit for logout: 10 per minute
 @auth_router.post("/logout")
+@redis_rate_limit(
+    capacity=10,
+    refill_rate=0.167,
+    prefix="auth_logout:",
+    get_identifier=lambda req: get_user_identifier(req),
+)
 async def logout(
+    request: Request,
     current_user: Annotated[UserRead, Depends(get_current_active_user)],  # noqa: B008
     token_data: Annotated[TokenData, Depends(AccessTokenBearer())],  # noqa: B008
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
@@ -196,8 +215,11 @@ async def logout(
     )
 
 
+# Moderate rate limit for password reset: 3 per 15 minutes
 @auth_router.post("/forgot-password")
+@redis_rate_limit(capacity=3, refill_rate=0.0033, prefix="auth_forgot:")
 async def forgot_password(
+    request: Request,
     password_reset_request: PasswordResetRequest,
     backend_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
@@ -240,8 +262,11 @@ async def forgot_password(
     )
 
 
+# Standard rate limit for password reset: 5 per minute
 @auth_router.post("/reset-password")
+@redis_rate_limit(capacity=5, refill_rate=0.083, prefix="auth_reset:")
 async def reset_password(
+    request: Request,
     password_reset: PasswordReset,
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
 ) -> JSONResponse:
@@ -271,8 +296,16 @@ async def reset_password(
     )
 
 
+# Standard rate limit for password change: 5 per minute
 @auth_router.post("/change-password")
+@redis_rate_limit(
+    capacity=5,
+    refill_rate=0.083,
+    prefix="auth_change:",
+    get_identifier=lambda req: get_user_identifier(req),
+)
 async def change_password(
+    request: Request,
     password_change: PasswordChange,
     current_user: Annotated[User, Depends(get_current_active_user)],  # noqa: B008
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008

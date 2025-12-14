@@ -20,17 +20,11 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.router import routes
 from app.core.config import settings
 from app.core.exceptions import AppException, app_exception_handler
+from app.core.rate_limiter import (  # FixedWindowRateLimiter,; SlidingWindowRateLimiter,; TokenBucketRateLimiter,
+    RateLimitMiddleware,
+)
 from app.core.redis_rate_limiter import RedisTokenBucketRateLimiter
-
-# from app.core.rate_limiter import (
-#     FixedWindowRateLimiter,
-#     SlidingWindowRateLimiter,
-#     TokenBucketRateLimiter,
-#     RateLimitMiddleware
-# )
-
-# from app.utils.helper import get_user_identifier
-
+from app.utils.helper import get_user_identifier
 
 # Configure logging
 logging.basicConfig(
@@ -75,8 +69,6 @@ async def lifespan(app: FastAPI):
         prefix="ratelimit:",
     )
 
-    logger.info("✅ Redis RateLimitMiddleware enabled")
-
     # Yield to run the application
     yield
 
@@ -102,6 +94,14 @@ app = FastAPI(
     lifespan=lifespan,
     generate_unique_id_function=custom_generate_unique_id,
 )
+
+# Register middleware with limiter
+app.add_middleware(
+    RateLimitMiddleware,
+    get_identifier=get_user_identifier,
+)
+
+logger.info("✅ Redis RateLimitMiddleware enabled")
 
 
 # 📂 Static Files Configuration
