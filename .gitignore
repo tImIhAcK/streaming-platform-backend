@@ -15,5 +15,4 @@ wheels/
 # Environment variable files
 .env
 .env.local
-.env.*.local
 .env.prod
