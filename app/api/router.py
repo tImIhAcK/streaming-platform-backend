@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import auth, stream_webhooks, streams, users
+from app.api.v1.https import auth, streams, users
+from app.api.v1.webhooks import stream_webhooks
 from app.core.config import settings
 
 routes = APIRouter()
