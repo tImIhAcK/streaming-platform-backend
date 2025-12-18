@@ -10,7 +10,13 @@ from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["argon2"],
+    deprecated="auto",
+    argon2__time_cost=3,
+    argon2__memory_cost=65536,  # 64MB
+    argon2__parallelism=2,
+)
 logger = logging.getLogger(__name__)
 
 
