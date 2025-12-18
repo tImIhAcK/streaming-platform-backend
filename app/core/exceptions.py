@@ -50,7 +50,7 @@ class ValidationException(AppException):
     ):
         super().__init__(
             message=message,
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             error_code="VALIDATION_ERROR",
             details=details,
         )

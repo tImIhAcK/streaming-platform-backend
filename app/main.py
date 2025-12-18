@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, Tuple, Union
 
 import redis.asyncio as redis
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 # from fastapi.exceptions import RequestValidationError
@@ -19,7 +19,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.router import routes
 from app.core.config import settings
-from app.core.exceptions import AppException, app_exception_handler
+from app.core.exceptions import AppException, ConflictException, app_exception_handler
 from app.core.rate_limiter import (  # FixedWindowRateLimiter,; SlidingWindowRateLimiter,; TokenBucketRateLimiter,
     RateLimitMiddleware,
 )
@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
     # ---------------------------
     if app.state.redis:
         try:
-            await app.state.redis.close()
+            await app.state.redis.aclose()
             print("✅ Redis connection closed")
         except Exception as e:
             print(f"⚠️ Error closing Redis: {e}")
@@ -142,6 +142,14 @@ async def custom_app_exception_handler(
     request: Request, exc: AppException
 ) -> JSONResponse:
     return await app_exception_handler(request, exc)
+
+
+@app.exception_handler(ConflictException)
+async def conflict_exception_handler(request: Request, exc: ConflictException):
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"message": exc.message, "details": exc.details},
+    )
 
 
 app.include_router(routes)

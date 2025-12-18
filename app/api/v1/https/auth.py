@@ -6,7 +6,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 # from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlmodel import select
+
+# from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
@@ -120,8 +121,8 @@ async def login(
         )
     if not verify_password(form_data.password, user.password_hash):
         raise ValidationException(
-            message="Incorrect password.",
-            details={"field": "password"},
+            message="Incorrect username or password.",
+            details={"field": "credentials"},
         )
 
     if not user.is_active:
@@ -224,9 +225,7 @@ async def forgot_password(
     backend_tasks: BackgroundTasks,
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
 ) -> JSONResponse:
-    stmt = select(User).where(User.email == password_reset_request.email)
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
+    user = await auth_crud.get_by_email(session, password_reset_request.email)
     if not user:
         raise ResourceNotFoundException(
             resource_id=password_reset_request.email,
@@ -270,20 +269,12 @@ async def reset_password(
     password_reset: PasswordReset,
     session: Annotated[AsyncSession, Depends(get_session)],  # noqa: B008
 ) -> JSONResponse:
-    stmt = select(User).where(User.reset_token == password_reset.token)
-    resrlt = await session.execute(stmt)
-    user = resrlt.scalar_one_or_none()
-    if not user:
-        raise ValidationException(
-            message="Invalid or expired reset token.",
-            details={"field": "token"},
-        )
-    if datetime.now(timezone.utc) > user.reset_token_expires_at:
-        raise ValidationException(
-            message="Reset token has expired.",
-            details={"field": "token"},
-        )
 
+    user = await auth_crud.get_by_reset_token(session, password_reset.token)
+    if not user or user.reset_token_expires_at < datetime.now(timezone.utc):
+        raise ValidationException(
+            message="Invalid or expired reset token", details={"field": "token"}
+        )
     user.password_hash = get_password_hash(password_reset.new_password)
     user.reset_token = None
     user.reset_token_expires_at = None

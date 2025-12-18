@@ -81,7 +81,7 @@ async def get_current_user(
 ) -> User:
     # user_username = token_details['user']['username']
     user_uid = token_details["user"]["uid"]
-    user = await user_crud.get_user_by_uid(session, user_uid)
+    user: User | None = await session.get(User, str(user_uid))
 
     if user is None:
         raise HTTPException(

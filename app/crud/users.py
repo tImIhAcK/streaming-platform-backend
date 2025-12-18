@@ -1,9 +1,11 @@
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Optional, cast
 
 from pydantic import EmailStr
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.exceptions import ValidationException
 from app.core.security import generate_token, get_password_hash
 from app.crud.base import BaseCRUD
 from app.models.users import User
@@ -83,6 +85,25 @@ class UserCRUD(BaseCRUD[User]):
 
     async def delete_user(self, session: AsyncSession, uid: str) -> bool:
         return await self.delete(session, uid, field="uid")
+
+    async def get_by_reset_token(
+        self, session: AsyncSession, reset_token: str
+    ) -> UserRead:
+        stmt = select(User).where(User.reset_token == reset_token)
+        resrlt = await session.execute(stmt)
+        user = resrlt.scalar_one_or_none()
+        if not user:
+            raise ValidationException(
+                message="Invalid or expired reset token.",
+                details={"field": "token"},
+            )
+        if datetime.now(timezone.utc) > user.reset_token_expires_at:
+            raise ValidationException(
+                message="Reset token has expired.",
+                details={"field": "token"},
+            )
+
+        return cast(UserRead, UserRead.model_validate(user, from_attributes=True))
 
     async def get_by_activation_token(
         self, session: AsyncSession, token: str
