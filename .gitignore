@@ -16,3 +16,7 @@ wheels/
 .env
 .env.local
 .env.prod
+
+.coverage
+htmlcov/
+.tox/
