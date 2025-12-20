@@ -14,6 +14,8 @@ from typing import Callable, DefaultDict, Dict, List, Optional, Tuple
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app.core.config import settings
+
 
 class FixedWindowRateLimiter:
     """Fixed window rate limiter - resets at fixed intervals"""
@@ -147,54 +149,61 @@ class TokenBucketRateLimiter:
 class RateLimitMiddleware:
     """Global rate limiting middleware"""
 
-    def __init__(self, app, get_identifier: Callable):
+    def __init__(
+        self,
+        app,
+        get_identifier: Callable,
+        is_enabled: Optional[Callable[[], bool]] = None,
+    ):
         self.app = app
         self.get_identifier = get_identifier
+        self.is_enabled = is_enabled or (lambda: True)
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            return await self.app(scope, receive, send)
+        if not self.is_enabled():
+            if scope["type"] != "http":
+                return await self.app(scope, receive, send)
 
-        request = Request(scope, receive)
+            request = Request(scope, receive)
 
-        # Access rate_limiter from app.state at request time, not at init time
-        if not hasattr(request.app.state, "rate_limiter"):
-            # If Redis isn't ready yet, allow the request
-            await self.app(scope, receive, send)
-            return
+            # Access rate_limiter from app.state at request time, not at init time
+            if not hasattr(request.app.state, "rate_limiter"):
+                # If Redis isn't ready yet, allow the request
+                await self.app(scope, receive, send)
+                return
 
-        limiter = request.app.state.rate_limiter
-        identifier = self.get_identifier(request)
-        allowed, info = await limiter.is_allowed(identifier)
+            limiter = request.app.state.rate_limiter
+            identifier = self.get_identifier(request)
+            allowed, info = await limiter.is_allowed(identifier)
 
-        async def send_with_headers(message):
-            if message["type"] == "http.response.start":
-                headers = list(message.get("headers", []))
-                headers.extend(
-                    [
-                        (b"X-RateLimit-Limit", str(info["limit"]).encode()),
-                        (b"X-RateLimit-Remaining", str(info["remaining"]).encode()),
-                        (b"X-RateLimit-Reset", str(info["reset"]).encode()),
-                    ]
+            async def send_with_headers(message):
+                if message["type"] == "http.response.start":
+                    headers = list(message.get("headers", []))
+                    headers.extend(
+                        [
+                            (b"X-RateLimit-Limit", str(info["limit"]).encode()),
+                            (b"X-RateLimit-Remaining", str(info["remaining"]).encode()),
+                            (b"X-RateLimit-Reset", str(info["reset"]).encode()),
+                        ]
+                    )
+                    message["headers"] = headers
+                await send(message)
+
+            if not allowed:
+                response = JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded"},
+                    headers={
+                        "X-RateLimit-Limit": str(info["limit"]),
+                        "X-RateLimit-Remaining": str(info["remaining"]),
+                        "X-RateLimit-Reset": str(info["reset"]),
+                        "Retry-After": str(info["reset"] - int(time.time())),
+                    },
                 )
-                message["headers"] = headers
-            await send(message)
+                await response(scope, receive, send)
+                return
 
-        if not allowed:
-            response = JSONResponse(
-                status_code=429,
-                content={"detail": "Rate limit exceeded"},
-                headers={
-                    "X-RateLimit-Limit": str(info["limit"]),
-                    "X-RateLimit-Remaining": str(info["remaining"]),
-                    "X-RateLimit-Reset": str(info["reset"]),
-                    "Retry-After": str(info["reset"] - int(time.time())),
-                },
-            )
-            await response(scope, receive, send)
-            return
-
-        await self.app(scope, receive, send_with_headers)
+            await self.app(scope, receive, send_with_headers)
 
 
 async def rate_limit(limiter, get_identifier: Optional[Callable] = None):
@@ -250,3 +259,9 @@ async def rate_limit(limiter, get_identifier: Optional[Callable] = None):
         return wrapper
 
     return decorator
+
+
+def get_rate_limiter_enabled() -> bool:
+    if settings.ENVIRONMENT == "test":
+        return False
+    return True

@@ -22,6 +22,7 @@ from app.core.config import settings
 from app.core.exceptions import AppException, ConflictException, app_exception_handler
 from app.core.rate_limiter import (  # FixedWindowRateLimiter,; SlidingWindowRateLimiter,; TokenBucketRateLimiter,
     RateLimitMiddleware,
+    get_rate_limiter_enabled,
 )
 from app.core.redis_rate_limiter import RedisTokenBucketRateLimiter
 from app.utils.helper import get_user_identifier
@@ -62,25 +63,26 @@ async def lifespan(app: FastAPI):
         logger.info(f"⚠️ Redis unavailable, rate limiting will fail open: {e}")
 
     # Create global Redis rate limiter
-    app.state.rate_limiter = RedisTokenBucketRateLimiter(
-        redis_client=app.state.redis,
-        capacity=60,  # 60 requests
-        refill_rate=1.0,  # 1 request per sec = 60/min
-        prefix="ratelimit:",
-    )
+    if settings.ENVIRONMENT != "test":
+        app.state.rate_limiter = RedisTokenBucketRateLimiter(
+            redis_client=app.state.redis,
+            capacity=60,  # 60 requests
+            refill_rate=1.0,  # 1 request per sec = 60/min
+            prefix="ratelimit:",
+        )
 
-    # Yield to run the application
-    yield
+        # Yield to run the application
+        yield
 
-    # ---------------------------
-    # SHUTDOWN
-    # ---------------------------
-    if app.state.redis:
-        try:
-            await app.state.redis.aclose()
-            print("✅ Redis connection closed")
-        except Exception as e:
-            print(f"⚠️ Error closing Redis: {e}")
+        # ---------------------------
+        # SHUTDOWN
+        # ---------------------------
+        if app.state.redis:
+            try:
+                await app.state.redis.aclose()
+                print("✅ Redis connection closed")
+            except Exception as e:
+                print(f"⚠️ Error closing Redis: {e}")
 
 
 # Initialize FastAPI app
@@ -99,6 +101,7 @@ app = FastAPI(
 app.add_middleware(
     RateLimitMiddleware,
     get_identifier=get_user_identifier,
+    is_enabled=get_rate_limiter_enabled,
 )
 
 logger.info("✅ Redis RateLimitMiddleware enabled")
