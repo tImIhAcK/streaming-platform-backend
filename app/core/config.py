@@ -1,4 +1,5 @@
 import json
+import os
 import secrets
 from functools import lru_cache
 from typing import Any, List, Optional, Union
@@ -10,14 +11,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # load_dotenv(dotenv_path='.env')
 
-# ENV = os.environ.get("ENVIRONMENT", "development").strip("'\"").lower()
-# ENV_FILE = ".env.prod" if ENV == "production" else ".env.local"
-# print(ENV_FILE)
+ENV = os.environ.get("ENVIRONMENT", "development").strip("'\"").lower()
+ENV_FILE = ".env.prod" if ENV == "production" else ".env.local"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env.local",
+        env_file=ENV_FILE,
         env_ignore_empty=True,
         case_sensitive=True,
         env_file_encoding="utf-8",

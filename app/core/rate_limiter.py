@@ -3,6 +3,8 @@ Rate Limiting Implementation
 Supports multiple strategies: fixed window, sliding window, and token bucket
 """
 
+import logging
+
 # import asyncio
 import time
 from collections import defaultdict
@@ -15,6 +17,8 @@ from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class FixedWindowRateLimiter:
@@ -263,6 +267,6 @@ async def rate_limit(limiter, get_identifier: Optional[Callable] = None):
 
 
 def get_rate_limiter_enabled() -> bool:
-    if settings.ENVIRONMENT == "test":
-        return False
-    return True
+    enabled = settings.ENVIRONMENT == "test"
+    # logger.info(f"Rate limiter enabled: {enabled} (Environment: {settings.ENVIRONMENT})")
+    return enabled
