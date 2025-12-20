@@ -399,7 +399,7 @@ class TestEmailValidation:
             },
         )
 
-        assert response1.status_code != status.HTTP_201_CREATED
+        assert response1.status_code == status.HTTP_201_CREATED
 
         # Try to register with same email in lowercase
         mock_user_exists.return_value = True  # Should detect duplicate
