@@ -100,7 +100,5 @@ jobs:
           uv pip install -r requirements-dev.txt
 
       - name: Run tests with coverage
-        env:
-          ENV_FILE: .env.test
         run: |
           uv run pytest -v --disable-warnings --cov=app --cov-report=term-missing --cov-report=xml
