@@ -1,5 +1,6 @@
 import json
 import secrets
+from functools import lru_cache
 from typing import Any, List, Optional, Union
 
 from pydantic import field_validator, model_validator
@@ -115,6 +116,7 @@ class Settings(BaseSettings):
     GOOGLE_OAUTH_REDIRECT_URI: str
 
 
+@lru_cache()
 def get_settings() -> Settings:
     return Settings()
 
