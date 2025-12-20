@@ -99,13 +99,16 @@ app = FastAPI(
 )
 
 # Register middleware with limiter
-app.add_middleware(
-    RateLimitMiddleware,
-    get_identifier=get_user_identifier,
-    is_enabled=get_rate_limiter_enabled,
-)
+if settings.ENVIRONMENT != "test":
+    app.add_middleware(
+        RateLimitMiddleware,
+        get_identifier=get_user_identifier,
+        is_enabled=get_rate_limiter_enabled,
+    )
 
-logger.info("✅ Redis RateLimitMiddleware enabled")
+    logger.info("✅ Redis RateLimitMiddleware enabled")
+else:
+    logger.info("ℹ️ Rate limiting disabled in test environment")
 
 
 # 📂 Static Files Configuration
