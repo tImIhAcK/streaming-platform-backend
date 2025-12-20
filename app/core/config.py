@@ -12,7 +12,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # load_dotenv(dotenv_path='.env')
 
 ENV = os.environ.get("ENVIRONMENT", "development").strip("'\"").lower()
-ENV_FILE = ".env.prod" if ENV == "production" else ".env.local"
+if ENV == "production":
+    ENV_FILE = ".env.prod"
+elif ENV == "test":
+    ENV_FILE = ".env.test"
+else:
+    ENV_FILE = ".env.local"
 
 
 class Settings(BaseSettings):
