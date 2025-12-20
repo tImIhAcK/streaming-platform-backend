@@ -71,18 +71,18 @@ async def lifespan(app: FastAPI):
             prefix="ratelimit:",
         )
 
-        # Yield to run the application
-        yield
+    # Yield to run the application
+    yield
 
-        # ---------------------------
-        # SHUTDOWN
-        # ---------------------------
-        if app.state.redis:
-            try:
-                await app.state.redis.aclose()
-                print("✅ Redis connection closed")
-            except Exception as e:
-                print(f"⚠️ Error closing Redis: {e}")
+    # ---------------------------
+    # SHUTDOWN
+    # ---------------------------
+    if app.state.redis:
+        try:
+            await app.state.redis.aclose()
+            print("✅ Redis connection closed")
+        except Exception as e:
+            print(f"⚠️ Error closing Redis: {e}")
 
 
 # Initialize FastAPI app
