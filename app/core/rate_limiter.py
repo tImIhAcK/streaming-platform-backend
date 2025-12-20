@@ -267,6 +267,6 @@ async def rate_limit(limiter, get_identifier: Optional[Callable] = None):
 
 
 def get_rate_limiter_enabled() -> bool:
-    enabled = settings.ENVIRONMENT == "test"
+    enabled = settings.ENVIRONMENT != "test"
     # logger.info(f"Rate limiter enabled: {enabled} (Environment: {settings.ENVIRONMENT})")
     return enabled
