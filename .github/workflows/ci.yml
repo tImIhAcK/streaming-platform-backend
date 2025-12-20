@@ -72,33 +72,32 @@ jobs:
       - name: Create virtual environment
         run: uv venv
 
-      - name: Create test environment file
-        run: |
-          cat > .env.test <<EOF
-          ENVIRONMENT=test
-          POSTGRES_USER=test
-          POSTGRES_PASSWORD=test
-          POSTGRES_DB=test_db
-          POSTGRES_HOST=localhost
-          POSTGRES_PORT=5432
-          JWT_SECRET=test-secret
-          JWT_ALGORITHM=HS256
-          SUPERUSER_USERNAME=admin
-          SUPERUSER_PASSWORD=admin
-          SUPERUSER_EMAIL=admin@test.com
-          LOG_LEVEL=INFO
-          RTMP_SERVER_URL=rtmp://localhost/live
-          HLS_BASE_URL=http://localhost/hls
-          GOOGLE_CLIENT_ID=test
-          GOOGLE_CLIENT_SECRET=test
-          GOOGLE_OAUTH_REDIRECT_URI=http://localhost/auth/google/callback
-          REDIS_URL=redis://localhost:6379
-          EOF
-
       - name: Install dependencies
         run: |
           uv pip install -r requirements-dev.txt
 
       - name: Run tests with coverage
+        env:
+          ENVIRONMENT: test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          JWT_SECRET: test-secret
+          JWT_ALGORITHM: HS256
+          SUPERUSER_USERNAME: admin
+          SUPERUSER_PASSWORD: admin
+          SUPERUSER_EMAIL: admin@test.com
+          LOG_LEVEL: INFO
+          RTMP_SERVER_URL: rtmp://localhost/live
+          HLS_BASE_URL: http://localhost/hls
+          GOOGLE_CLIENT_ID: test
+          GOOGLE_CLIENT_SECRET: test
+          GOOGLE_OAUTH_REDIRECT_URI: http://localhost/auth/google/callback
+          REDIS_URL: redis://localhost:6379
+          FRONTEND_HOST: http://localhost:5173
+          BACKEND_CORS_ORIGINS: http://localhost:8000,http://localhost:8008,http://localhost:5173
+
         run: |
           uv run pytest -v --disable-warnings --cov=app --cov-report=term-missing --cov-report=xml
