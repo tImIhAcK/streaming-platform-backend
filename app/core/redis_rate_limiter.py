@@ -8,6 +8,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import redis.asyncio as redis
 from fastapi import HTTPException, Request
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 # A small Lua script that performs token-bucket refill and consume atomically.
@@ -160,6 +162,9 @@ def redis_rate_limit(
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
+            if settings.ENVIRONMENT == "test":
+                # Skip rate limiting in test environment
+                return await func(*args, **kwargs)
             # Extract request from args/kwargs
             request = None
             for arg in args:

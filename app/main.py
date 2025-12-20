@@ -3,8 +3,6 @@ import logging
 # import os
 import signal
 from contextlib import asynccontextmanager
-
-# from contextlib import asynccontextmanager
 from typing import Any, Dict, Tuple, Union
 
 import redis.asyncio as redis
@@ -46,10 +44,6 @@ def custom_generate_unique_id(route: APIRoute) -> str:
         first_tag: str = str(route.tags[0])
         return f"{first_tag}-{route.name}"
     return str(route.name)
-
-
-_redis_client = None
-# _redis_rate_limiter = None
 
 
 @asynccontextmanager
