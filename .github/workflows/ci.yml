@@ -81,4 +81,4 @@ jobs:
           ENV: test
           REDIS_URL: redis://localhost:6379
         run: |
-          pytest -v --disable-warnings --cov=app --cov-report=term-missing --cov-report=xml
+          uv run pytest -v --disable-warnings --cov=app --cov-report=term-missing --cov-report=xml
