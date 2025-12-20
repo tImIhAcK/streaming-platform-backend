@@ -1,8 +1,8 @@
 import logging
+
+# import os
 import signal
 from contextlib import asynccontextmanager
-
-# from contextlib import asynccontextmanager
 from typing import Any, Dict, Tuple, Union
 
 import redis.asyncio as redis
@@ -20,7 +20,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.router import routes
 from app.core.config import settings
 from app.core.exceptions import AppException, ConflictException, app_exception_handler
-from app.core.rate_limiter import (  # FixedWindowRateLimiter,; SlidingWindowRateLimiter,; TokenBucketRateLimiter,
+from app.core.rate_limiter import (  # FixedWindowRateLimiter,; SlidingWindowRateLimiter,; TokenBucketRateLimiter,; get_rate_limiter_enabled,
     RateLimitMiddleware,
 )
 from app.core.redis_rate_limiter import RedisTokenBucketRateLimiter
@@ -44,10 +44,6 @@ def custom_generate_unique_id(route: APIRoute) -> str:
         first_tag: str = str(route.tags[0])
         return f"{first_tag}-{route.name}"
     return str(route.name)
-
-
-_redis_client = None
-# _redis_rate_limiter = None
 
 
 @asynccontextmanager
@@ -96,12 +92,15 @@ app = FastAPI(
 )
 
 # Register middleware with limiter
-app.add_middleware(
-    RateLimitMiddleware,
-    get_identifier=get_user_identifier,
-)
+if settings.ENVIRONMENT != "test":
+    app.add_middleware(
+        RateLimitMiddleware,
+        get_identifier=get_user_identifier,
+    )
 
-logger.info("✅ Redis RateLimitMiddleware enabled")
+    logger.info("✅ Redis RateLimitMiddleware enabled")
+else:
+    logger.info("ℹ️ Rate limiting disabled in test environment")
 
 
 # 📂 Static Files Configuration

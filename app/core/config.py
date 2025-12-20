@@ -1,5 +1,7 @@
 import json
+import os
 import secrets
+from functools import lru_cache
 from typing import Any, List, Optional, Union
 
 from pydantic import field_validator, model_validator
@@ -9,14 +11,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # load_dotenv(dotenv_path='.env')
 
-# ENV = os.environ.get("ENVIRONMENT", "development").strip("'\"").lower()
-# ENV_FILE = ".env.prod" if ENV == "production" else ".env.local"
-# print(ENV_FILE)
+ENV = os.environ.get("ENVIRONMENT", "development").strip("'\"").lower()
+if ENV == "production":
+    ENV_FILE = ".env.prod"
+elif ENV == "test":
+    ENV_FILE = ".env.test"
+else:
+    ENV_FILE = ".env.local"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env.local",
+        env_file=ENV_FILE,
         env_ignore_empty=True,
         case_sensitive=True,
         env_file_encoding="utf-8",
@@ -115,6 +121,7 @@ class Settings(BaseSettings):
     GOOGLE_OAUTH_REDIRECT_URI: str
 
 
+@lru_cache()
 def get_settings() -> Settings:
     return Settings()
 

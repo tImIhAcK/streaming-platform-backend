@@ -3,6 +3,8 @@ Rate Limiting Implementation
 Supports multiple strategies: fixed window, sliding window, and token bucket
 """
 
+import logging
+
 # import asyncio
 import time
 from collections import defaultdict
@@ -13,6 +15,10 @@ from typing import Callable, DefaultDict, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
+
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class FixedWindowRateLimiter:
@@ -147,11 +153,19 @@ class TokenBucketRateLimiter:
 class RateLimitMiddleware:
     """Global rate limiting middleware"""
 
-    def __init__(self, app, get_identifier: Callable):
+    def __init__(
+        self,
+        app,
+        get_identifier: Callable,
+        is_enabled: Optional[Callable[[], bool]] = None,
+    ):
         self.app = app
         self.get_identifier = get_identifier
+        self.is_enabled = is_enabled or (lambda: True)
 
     async def __call__(self, scope, receive, send):
+        if not self.is_enabled():
+            return await self.app(scope, receive, send)
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
 
@@ -250,3 +264,9 @@ async def rate_limit(limiter, get_identifier: Optional[Callable] = None):
         return wrapper
 
     return decorator
+
+
+def get_rate_limiter_enabled() -> bool:
+    enabled = settings.ENVIRONMENT != "test"
+    # logger.info(f"Rate limiter enabled: {enabled} (Environment: {settings.ENVIRONMENT})")
+    return enabled

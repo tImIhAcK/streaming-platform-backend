@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    # branches: [main, develop]
+
+jobs:
+  lint:
+    name: Python Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache pre-commit
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    name: Run Tests
+    needs: lint
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Create virtual environment
+        run: uv venv
+
+      - name: Install dependencies
+        run: |
+          uv pip install -r requirements-dev.txt
+
+      - name: Run tests with coverage
+        env:
+          ENVIRONMENT: test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          JWT_SECRET: test-secret
+          JWT_ALGORITHM: HS256
+          SUPERUSER_USERNAME: admin
+          SUPERUSER_PASSWORD: admin
+          SUPERUSER_EMAIL: admin@test.com
+          LOG_LEVEL: INFO
+          RTMP_SERVER_URL: rtmp://localhost/live
+          HLS_BASE_URL: http://localhost/hls
+          GOOGLE_CLIENT_ID: test
+          GOOGLE_CLIENT_SECRET: test
+          GOOGLE_OAUTH_REDIRECT_URI: http://localhost/auth/google/callback
+          REDIS_URL: redis://localhost:6379
+          FRONTEND_HOST: http://localhost:5173
+          BACKEND_CORS_ORIGINS: http://localhost:8000,http://localhost:8008,http://localhost:5173
+
+        run: |
+          uv run pytest -v --disable-warnings --cov=app --cov-report=term-missing --cov-report=xml
