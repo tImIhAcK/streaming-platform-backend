@@ -78,7 +78,29 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          ENV: test
+          ENVIRONMENT: test
+
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+
+          JWT_SECRET: test-secret
+          JWT_ALGORITHM: HS256
+
+          SUPERUSER_USERNAME: admin
+          SUPERUSER_PASSWORD: admin
+          SUPERUSER_EMAIL: admin@test.com
+
+          LOG_LEVEL: INFO
+
+          RTMP_SERVER_URL: rtmp://localhost/live
+          HLS_BASE_URL: http://localhost/hls
+
+          GOOGLE_CLIENT_ID: test
+          GOOGLE_CLIENT_SECRET: test
+          GOOGLE_OAUTH_REDIRECT_URI: http://localhost/auth/google/callback
           REDIS_URL: redis://localhost:6379
         run: |
           uv run pytest -v --disable-warnings --cov=app --cov-report=term-missing --cov-report=xml
